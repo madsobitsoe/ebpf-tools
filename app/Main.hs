@@ -2,6 +2,7 @@ module Main where
 
 import Ebpf.Asm
 import Ebpf.AsmParser
+import Ebpf.Elf
 import qualified Ebpf.Encode as E
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Internal as B (w2c)
@@ -13,6 +14,7 @@ import Data.List (intersperse)
 
 data Tool = Dump
           | Assemble
+          | AssembleElf
           | Disassemble
           deriving (Eq, Show)
 
@@ -41,6 +43,10 @@ options = info (opts <**> helper)
            <|>
            flag' Dump (long "dump"
                        <> help "Parse asm file and print an AST")
+           <|>
+           flag' AssembleElf (long "assemble ELF object"
+                              <> short 'e'
+                              <> help "Parse asm file and write ELF object to output")
 
     output = optional $ strOption (long "output"
                                    <> short 'o'
@@ -65,6 +71,15 @@ main = do
         Left err -> print err
         Right prog ->
           out $ E.encodeProgram prog
+    AssembleElf -> do
+      let out = case outfile of
+                  Nothing -> hexDump
+                  Just ofile -> B.writeFile ofile
+      res <- parseFromFile file
+      case res of
+        Left err -> print err
+        Right prog ->
+          out $ addElfHeader $ E.encodeProgram prog
 
 
     _ -> error "Not implemented yet"
